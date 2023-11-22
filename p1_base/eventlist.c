@@ -1,5 +1,4 @@
 #include "eventlist.h"
-//FIX ME 
 #include <stdlib.h>
 
 struct EventList* create_list() {

@@ -44,35 +44,26 @@ int main(int argc, char *argv[]) {
       
       char c = '\t';
       long int bytes_read = 1;
-      int size = 0;
+      //int size = 0;
 
       char list[CONST_SIZE];
     
+      while (bytes_read > 0) {
+        int i = 0;
+        bytes_read = read(fd, &c, 1);
 
-      for(int j=0; c!= '\0';j++){
-        for(int i= 0; bytes_read != 0  ; i++){
-
-          if(c == '\n'){
-            i = 0;
-          }
-          
-          bytes_read = read(fd, &c, 1);
-          
-          list[i] = c;
-          size = i;
-
+        while (bytes_read > 0 && c != '\n') {
+            list[i++] = c;
+            bytes_read = read(fd, &c, 1);
         }
 
-        list[size] = '\0';
+        list[i] = '\0'; 
         printf("%s\n", list);
-
-        close(fd);
-
-        
+    }
+    close(fd);
+          
       }
     }  
-
-  }
 
 
 

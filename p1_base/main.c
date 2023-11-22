@@ -2,15 +2,82 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <string.h>
 
 #include "constants.h"
 #include "operations.h"
 #include "parser.h"
+#include <sys/stat.h>
+
+int CONST_SIZE = 1024;
+
 
 int main(int argc, char *argv[]) {
   unsigned int state_access_delay_ms = STATE_ACCESS_DELAY_MS;
+  
+  if (argc == 2){
+    char *path = argv[1];
+    DIR *current_dir = opendir(path);
+    if (current_dir == NULL) {
+      printf("opendir failed on '%s'", path);
+      return -1;
+    }
 
-  if (argc > 1) {
+    struct dirent *current_file;
+    
+    
+    while ((current_file = readdir(current_dir)) != NULL){
+
+     
+      char path_copy[strlen(path)+ strlen(current_file->d_name) + 3];
+      strcpy(path_copy, path);
+      if (current_file == NULL)
+        break;
+      if (strcmp(current_file->d_name, ".") == 0 || strcmp(current_file->d_name, "..") == 0)
+        continue; /* Skip . and .. */
+      
+      strcat(strcat(path_copy,"/"), current_file->d_name);
+
+      int fd = open(path_copy,O_RDONLY);
+      
+      char c = '\t';
+      long int bytes_read = 1;
+      int size = 0;
+
+      char list[CONST_SIZE];
+    
+
+      for(int j=0; c!= '\0';j++){
+        for(int i= 0; bytes_read != 0  ; i++){
+
+          if(c == '\n'){
+            i = 0;
+          }
+          
+          bytes_read = read(fd, &c, 1);
+          
+          list[i] = c;
+          size = i;
+
+        }
+
+        list[size] = '\0';
+        printf("%s\n", list);
+
+        close(fd);
+
+        
+      }
+    }  
+
+  }
+
+
+
+
+  if (argc > 2) {
     char *endptr;
     unsigned long int delay = strtoul(argv[1], &endptr, 10);
 

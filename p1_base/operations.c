@@ -210,12 +210,11 @@ int ems_list_events(int fd_out) {
 
   struct ListNode* current = event_list->head;
   while (current != NULL) {
-    size_t len = 1;
     write(fd_out,"Event: ",7);
     char event_string[BUFFER_SIZE];
     sprintf(event_string, "%u", (current->event)->id);
-    write(fd_out, event_string, len);
-    write(fd_out,"\n ", len);
+    write(fd_out, event_string, strlen(event_string));
+    write(fd_out,"\n ", 1);
     current = current->next;
   }
 

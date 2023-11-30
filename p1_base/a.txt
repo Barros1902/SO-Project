@@ -1,0 +1,19 @@
+Available commands:
+  CREATE <event_id> <num_rows> <num_columns>
+  RESERVE <event_id> [(<x1>,<y1>) (<x2>,<y2>) ...]
+  SHOW <event_id>
+  LIST
+  WAIT <delay_ms> [thread_id]
+  BARRIER
+  HELP
+1 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 0
+0 0 0 0 0 0 0 0 0 1
+

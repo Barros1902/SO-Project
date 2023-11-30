@@ -5,177 +5,86 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "constants.h"
 #include "operations.h"
 #include "parser.h"
-#include <sys/stat.h>
 
 int CONST_SIZE = 1024;
 
-
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
   unsigned int state_access_delay_ms = STATE_ACCESS_DELAY_MS;
+
+
+
   
+
+  if (argc > 2)
+  {
+    
+    char *endptr;
+    unsigned long int delay = strtoul(argv[2], &endptr, 10);
+
+
+    if (*endptr != '\0' || delay > UINT_MAX) {
+        fprintf(stderr, "Invalid delay value or value too large\n%li\n%s\n", delay, endptr);
+        return 1;
+      }
+
+    state_access_delay_ms = (unsigned int)delay;
+   }
   if (argc == 2){
+    
+    
+    if (ems_init(state_access_delay_ms))
+  {
+    fprintf(stderr, "Failed to initialize EMS\n");
+    return 1;
+  }
+
     char *path = argv[1];
     DIR *current_dir = opendir(path);
-    if (current_dir == NULL) {
+    if (current_dir == NULL)
+    {
       printf("opendir failed on '%s'", path);
       return -1;
     }
 
     struct dirent *current_file;
-    
-    
-    while ((current_file = readdir(current_dir)) != NULL){
 
-     
-      char path_copy[strlen(path)+ strlen(current_file->d_name) + 3];
+    while ((current_file = readdir(current_dir)) != NULL)
+    {  
+      
+      char path_copy[strlen(path) + strlen(current_file->d_name) + 3];
       strcpy(path_copy, path);
+
       if (current_file == NULL)
         break;
-      if (strcmp(current_file->d_name, ".") == 0 || strcmp(current_file->d_name, "..") == 0)
-        continue; /* Skip . and .. */
-      
-      strcat(strcat(path_copy,"/"), current_file->d_name);
+      size_t size = strlen(current_file->d_name);
+      if (!( size >= 5 && (strcmp(current_file->d_name + size-5, ".jobs") == 0)))
+        continue; /* Skip . and ..  and files that are not .jobs*/
 
-      int fd = open(path_copy,O_RDONLY);
-      
-      char c = '\t';
-      long int bytes_read = 1;
-      //int size = 0;
+      strcat(strcat(path_copy, "/"), current_file->d_name);
+      int fd = open(path_copy, O_RDONLY);
 
-      char list[CONST_SIZE];
+      char file_name_copy[strlen(current_file->d_name)+1];
+      
+      strcpy(file_name_copy, current_file->d_name);
+
+      file_name_copy[strlen(file_name_copy)-5] = '\0';
+      int fd_out = open(strncat(file_name_copy, ".txt",5),O_CREAT | O_WRONLY);
+      (void)fd_out;
+      parse_start(fd, fd_out);
+      close(fd);
+      
+      
+    }
+    closedir(current_dir);
+    ems_terminate();
     
-      while (bytes_read > 0) {
-        int i = 0;
-        bytes_read = read(fd, &c, 1);
-
-        while (bytes_read > 0 && c != '\n') {
-            list[i++] = c;
-            bytes_read = read(fd, &c, 1);
-        }
-
-        list[i] = '\0'; 
-        printf("%s\n", list);
-    }
-    close(fd);
-          
-      }
-    }  
-
-
-
-
-  if (argc > 2) {
-    char *endptr;
-    unsigned long int delay = strtoul(argv[1], &endptr, 10);
-
-    if (*endptr != '\0' || delay > UINT_MAX) {
-      fprintf(stderr, "Invalid delay value or value too large\n");
-      return 1;
-    }
-
-    state_access_delay_ms = (unsigned int)delay;
   }
 
-  if (ems_init(state_access_delay_ms)) {
-    fprintf(stderr, "Failed to initialize EMS\n");
-    return 1;
-  }
-
-  while (1) {
-    unsigned int event_id, delay;
-    size_t num_rows, num_columns, num_coords;
-    size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
-
-    printf("> ");
-    fflush(stdout);
-
-    switch (get_next(STDIN_FILENO)) {
-      case CMD_CREATE:
-        if (parse_create(STDIN_FILENO, &event_id, &num_rows, &num_columns) != 0) {
-          fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
-        }
-
-        if (ems_create(event_id, num_rows, num_columns)) {
-          fprintf(stderr, "Failed to create event\n");
-        }
-
-        break;
-
-      case CMD_RESERVE:
-        num_coords = parse_reserve(STDIN_FILENO, MAX_RESERVATION_SIZE, &event_id, xs, ys);
-
-        if (num_coords == 0) {
-          fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
-        }
-
-        if (ems_reserve(event_id, num_coords, xs, ys)) {
-          fprintf(stderr, "Failed to reserve seats\n");
-        }
-
-        break;
-
-      case CMD_SHOW:
-        if (parse_show(STDIN_FILENO, &event_id) != 0) {
-          fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
-        }
-
-        if (ems_show(event_id)) {
-          fprintf(stderr, "Failed to show event\n");
-        }
-
-        break;
-
-      case CMD_LIST_EVENTS:
-        if (ems_list_events()) {
-          fprintf(stderr, "Failed to list events\n");
-        }
-
-        break;
-
-      case CMD_WAIT:
-        if (parse_wait(STDIN_FILENO, &delay, NULL) == -1) {  // thread_id is not implemented
-          fprintf(stderr, "Invalid command. See HELP for usage\n");
-          continue;
-        }
-
-        if (delay > 0) {
-          printf("Waiting...\n");
-          ems_wait(delay);
-        }
-
-        break;
-
-      case CMD_INVALID:
-        fprintf(stderr, "Invalid command. See HELP for usage\n");
-        break;
-
-      case CMD_HELP:
-        printf(
-            "Available commands:\n"
-            "  CREATE <event_id> <num_rows> <num_columns>\n"
-            "  RESERVE <event_id> [(<x1>,<y1>) (<x2>,<y2>) ...]\n"
-            "  SHOW <event_id>\n"
-            "  LIST\n"
-            "  WAIT <delay_ms> [thread_id]\n"  // thread_id is not implemented
-            "  BARRIER\n"                      // Not implemented
-            "  HELP\n");
-
-        break;
-
-      case CMD_BARRIER:  // Not implemented
-      case CMD_EMPTY:
-        break;
-
-      case EOC:
-        ems_terminate();
-        return 0;
-    }
-  }
+  
 }

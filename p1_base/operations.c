@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "eventlist.h"
+#include "constants.h"
 
 static struct EventList* event_list = NULL;
 static unsigned int state_access_delay_ms = 0;
@@ -20,7 +24,6 @@ static struct timespec delay_to_timespec(unsigned int delay_ms) {
 static struct Event* get_event_with_delay(unsigned int event_id) {
   struct timespec delay = delay_to_timespec(state_access_delay_ms);
   nanosleep(&delay, NULL);  // Should not be removed
-
   return get_event(event_list, event_id);
 }
 
@@ -117,7 +120,6 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   }
 
   struct Event* event = get_event_with_delay(event_id);
-
   if (event == NULL) {
     fprintf(stderr, "Event not found\n");
     return 1;
@@ -155,7 +157,7 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t* xs, size_t* ys)
   return 0;
 }
 
-int ems_show(unsigned int event_id) {
+int ems_show(unsigned int event_id, int fd_out) {
   if (event_list == NULL) {
     fprintf(stderr, "EMS state must be initialized\n");
     return 1;
@@ -167,38 +169,53 @@ int ems_show(unsigned int event_id) {
     fprintf(stderr, "Event not found\n");
     return 1;
   }
-
+  size_t len  = 1;
   for (size_t i = 1; i <= event->rows; i++) {
     for (size_t j = 1; j <= event->cols; j++) {
       unsigned int* seat = get_seat_with_delay(event, seat_index(event, i, j));
-      printf("%u", *seat);
+      char seat_string[BUFFER_SIZE];
+      sprintf(seat_string, "%u", *seat);
+      
+      ssize_t bytes_written = write(fd_out, seat_string, len);
+      (void)bytes_written;
+
+      // if (bytes_written < 0){
+      //    fprintf(stderr, "write error");
+      //    return -1;
+      //}
+     
 
       if (j < event->cols) {
-        printf(" ");
+        write(fd_out," ", len);
       }
     }
-
-    printf("\n");
+    write(fd_out,"\n ", len);
+    
   }
 
   return 0;
 }
 
-int ems_list_events() {
+int ems_list_events(int fd_out) {
   if (event_list == NULL) {
-    fprintf(stderr, "EMS state must be initialized\n");
+    write(fd_out, "EMS state must be initialized\n", 31);
     return 1;
   }
 
   if (event_list->head == NULL) {
-    printf("No events\n");
+    write(fd_out, "No events\n", 10);
     return 0;
   }
 
+
   struct ListNode* current = event_list->head;
   while (current != NULL) {
-    printf("Event: ");
-    printf("%u\n", (current->event)->id);
+    size_t len = 1;
+    write(fd_out,"Event: ",7);
+    char event_string[BUFFER_SIZE];
+    sprintf(event_string, "%u", (current->event)->id);
+    write(fd_out, event_string, len);
+    write(fd_out,"\n ", len);
     current = current->next;
   }
 

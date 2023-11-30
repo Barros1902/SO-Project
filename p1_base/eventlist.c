@@ -1,5 +1,6 @@
 #include "eventlist.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 struct EventList* create_list() {
   struct EventList* list = (struct EventList*)malloc(sizeof(struct EventList));
@@ -53,8 +54,10 @@ void free_list(struct EventList* list) {
 
 struct Event* get_event(struct EventList* list, unsigned int event_id) {
   if (!list) return NULL;
-
+  
   struct ListNode* current = list->head;
+  
+
   while (current) {
     struct Event* event = current->event;
     if (event->id == event_id) {

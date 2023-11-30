@@ -21,8 +21,15 @@ enum Command {
 /// @return The command read.
 enum Command get_next(int fd);
 
+/// Recieves a file descriptor to start parsing.
+/// @param fd File descriptor to read from.
+/// @param fd_out File descriptor to write to.
+/// @return The return of the switch cases.
+int parse_start(int fd, int fd_out);
+
 /// Parses a CREATE command.
 /// @param fd File descriptor to read from.
+/// @param fd_out File descriptor to write to.
 /// @param event_id Pointer to the variable to store the event ID in.
 /// @param num_rows Pointer to the variable to store the number of rows in.
 /// @param num_cols Pointer to the variable to store the number of columns in.

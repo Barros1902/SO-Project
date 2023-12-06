@@ -58,12 +58,12 @@ int main(int argc, char *argv[]) {
             strcat(strcat(path_copy, "/"), current_file->d_name);
             int fd = open(path_copy, O_RDONLY);
 
-            char file_name_copy[strlen(current_file->d_name) + 1];
+        
 
-            strcpy(file_name_copy, current_file->d_name);
 
-            file_name_copy[strlen(file_name_copy) - 5] = '\0';
-            int fd_out = open(strncat(file_name_copy, ".out", 5), O_CREAT | O_WRONLY|O_TRUNC , S_IRUSR );
+            path_copy[strlen(path_copy) - 5] = '\0';
+			strncat(path_copy, ".out", 5);
+            int fd_out = open(path_copy, O_CREAT | O_WRONLY|O_TRUNC , S_IRUSR );
             parse_start(fd, fd_out);
             close(fd_out);
             close(fd);

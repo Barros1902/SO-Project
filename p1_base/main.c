@@ -12,13 +12,15 @@
 #include "parser.h"
 
 int CONST_SIZE = 1024;
-
+int MAX_PROC;
 int main(int argc, char *argv[]) {
     unsigned int state_access_delay_ms = STATE_ACCESS_DELAY_MS;
 
-    if (argc > 2) {
+    if (argc > 3) {
         char *endptr;
-        unsigned long int delay = strtoul(argv[2], &endptr, 10);
+        unsigned long int delay = strtoul(argv[3], &endptr, 10);
+        MAX_PROC = argv[2];
+        
 
         if (*endptr != '\0' || delay > UINT_MAX) {
             fprintf(stderr, "Invalid delay value or value too large\n%li\n%s\n",
@@ -28,12 +30,12 @@ int main(int argc, char *argv[]) {
 
         state_access_delay_ms = (unsigned int)delay;
     }
-    if (argc == 2) {
+    if (argc == 3) {
         if (ems_init(state_access_delay_ms)) {
             fprintf(stderr, "Failed to initialize EMS\n");
             return 1;
         }
-
+        MAX_PROC = argv[2];
         char *path = argv[1];
         DIR *current_dir = opendir(path);
         if (current_dir == NULL) {
@@ -42,9 +44,22 @@ int main(int argc, char *argv[]) {
         }
 
         struct dirent *current_file;
+        int fid = 1;
+
+        while (1)
+        {
+            if(MAX_PROC != 0 && fid != 0){
+                current_file = readdir(current_dir);
+                fid = fork();
+                MAX_PROC --;
+            }
+        }
+        
 
         while ((current_file = readdir(current_dir)) != NULL) {
-
+                
+            
+            int fid = fork();
             char path_copy[strlen(path) + strlen(current_file->d_name) + 3];
             strcpy(path_copy, path);
 

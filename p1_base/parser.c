@@ -71,7 +71,9 @@ int parse_start(int fd, int fd_out) {
 
             if (delay > 0) {
                 printf("Waiting...\n");
+
                 ems_wait(delay);
+                printf("\n\n???\n\n");
             }
 
             break;

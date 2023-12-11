@@ -73,7 +73,7 @@ int parse_start(int fd, int fd_out) {
                 printf("Waiting...\n");
 
                 ems_wait(delay);
-                printf("\n\n???\n\n");
+
             }
 
             break;
@@ -102,7 +102,6 @@ int parse_start(int fd, int fd_out) {
             break;
 
         case EOC:
-
             return 0;
         }
     }

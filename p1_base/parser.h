@@ -2,7 +2,8 @@
 #define EMS_PARSER_H
 
 #include <stddef.h>
-
+#include <semaphore.h>
+#include <pthread.h>
 enum Command {
     CMD_CREATE,
     CMD_RESERVE,
@@ -16,16 +17,28 @@ enum Command {
     EOC // End of commands
 };
 
+typedef struct{
+
+    int fd;
+    int fd_out;
+    int thread_num;
+    int max_thread;
+
+} thread_args;
+
+
 /// Reads a line and returns the corresponding command.
 /// @param fd File descriptor to read from.
 /// @return The command read.
-enum Command get_next(int fd);
+enum Command get_next(int fd,  int *line);
 
 /// Recieves a file descriptor to start parsing.
 /// @param fd File descriptor to read from.
 /// @param fd_out File descriptor to write to.
 /// @return The return of the switch cases.
-int parse_start(int fd, int fd_out);
+void* parse_start(void* args);
+
+int my_line( int thread_num, int line, int max_thread);
 
 /// Parses a CREATE command.
 /// @param fd File descriptor to read from.
@@ -61,5 +74,7 @@ int parse_show(int fd, unsigned int *event_id);
 /// @return 0 if no thread was specified, 1 if a thread was specified, -1 on
 /// error.
 int parse_wait(int fd, unsigned int *delay, unsigned int *thread_id);
+
+void wait_for_all(int arrived, sem_t semaforo, int max_thread);
 
 #endif // EMS_PARSER_H

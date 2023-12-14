@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "constants.h"
 #include "eventlist.h"
@@ -91,14 +92,22 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
         return 1;
     }
 
+    pthread_mutex_init(&event->mutex_event,NULL);
+
+    //event->mutex_event = mutex_event;
+    pthread_mutex_lock(&(event->mutex_event));
+
     event->id = event_id;
     event->rows = num_rows;
     event->cols = num_cols;
     event->reservations = 0;
     event->data = malloc(num_rows * num_cols * sizeof(unsigned int));
+    
+    
 
     if (event->data == NULL) {
         fprintf(stderr, "Error allocating memory for event data\n");
+        pthread_mutex_unlock(&(event->mutex_event));
         free(event);
         return 1;
     }
@@ -107,13 +116,18 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
         event->data[i] = 0;
     }
 
+    pthread_mutex_unlock(&(event->mutex_event));
+
+    pthread_mutex_lock(&(event_list->mutex_event_list));
     if (append_to_list(event_list, event) != 0) {
         fprintf(stderr, "Error appending event to list\n");
+        pthread_mutex_unlock(&(event_list->mutex_event_list));
         free(event->data);
         free(event);
         return 1;
     }
 
+    pthread_mutex_unlock(&(event_list->mutex_event_list));
     return 0;
 }
 
@@ -207,13 +221,16 @@ int ems_list_events(int fd_out) {
         return 0;
     }
 
+    
     struct ListNode *current = event_list->head;
     while (current != NULL) {
+        pthread_mutex_lock(&(current->event)->mutex_event);
         write(fd_out, "Event: ", 7);
         char event_string[BUFFER_SIZE];
         sprintf(event_string, "%u", (current->event)->id);
         write(fd_out, event_string, strlen(event_string));
         write(fd_out, "\n ", 1);
+        pthread_mutex_unlock(&(current->event)->mutex_event);
         current = current->next;
     }
 

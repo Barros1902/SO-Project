@@ -2,6 +2,8 @@
 #define EVENT_LIST_H
 
 #include <stddef.h>
+#include <pthread.h>
+
 
 struct Event {
     unsigned int id;           /// Event id
@@ -12,6 +14,9 @@ struct Event {
 
     unsigned int *
         data; /// Array of size rows * cols with the reservations for each seat.
+
+    pthread_mutex_t mutex_event;
+    
 };
 
 struct ListNode {
@@ -23,6 +28,7 @@ struct ListNode {
 struct EventList {
     struct ListNode *head; // Head of the list
     struct ListNode *tail; // Tail of the list
+    pthread_mutex_t mutex_event_list;
 };
 
 /// Creates a new event list.

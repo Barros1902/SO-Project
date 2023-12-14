@@ -1,6 +1,7 @@
 #include "eventlist.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 struct EventList *create_list() {
     struct EventList *list =
@@ -9,6 +10,7 @@ struct EventList *create_list() {
         return NULL;
     list->head = NULL;
     list->tail = NULL;
+    pthread_mutex_init(&list->mutex_event_list,NULL);
     return list;
 }
 

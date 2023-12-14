@@ -1,6 +1,8 @@
 #include "parser.h"
 
 #include <limits.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,36 +11,51 @@
 #include "constants.h"
 #include "operations.h"
 
-int parse_start(int fd, int fd_out) {
-
+void *parse_start(void *args) {
+    thread_args *arg = (thread_args *)args;
+    int fd, fd_out, thread_num, max_thread;
+    fd = arg->fd, fd_out = arg->fd_out, thread_num = arg->thread_num,
+    max_thread = arg->max_thread;
+    unsigned int found_thread;
+    int line = 0;
+    sem_t semaforo;
+    int arrived = 0;
+    sem_init(&semaforo, 0, 0);
     while (1) {
+
         unsigned int event_id, delay;
         size_t num_rows, num_columns, num_coords;
         size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
 
-        switch (get_next(fd)) {
+        switch (get_next(fd, &line)) {
         case CMD_CREATE:
+            printf("line -- %d----", line);
             if (parse_create(fd, &event_id, &num_rows, &num_columns) != 0) {
                 fprintf(stderr, "Invalid command. See HELP for usage\n");
                 continue;
             }
-            if (ems_create(event_id, num_rows, num_columns)) {
-                fprintf(stderr, "Failed to create event\n");
+            printf("line -- %d thread_num -- %d\n", line, thread_num);
+            if (my_line(thread_num, line, max_thread)) {
+                
+                if (ems_create(event_id, num_rows, num_columns)) {
+                    fprintf(stderr, "Failed to create event\n");
+                }
             }
-
             break;
 
         case CMD_RESERVE:
             num_coords =
                 parse_reserve(fd, MAX_RESERVATION_SIZE, &event_id, xs, ys);
 
-            if (num_coords == 0) {
-                fprintf(stderr, "Invalid command. See HELP for usage\n");
-                continue;
-            }
+            if (my_line(thread_num, line, max_thread)) {
+                if (num_coords == 0) {
+                    fprintf(stderr, "Invalid command. See HELP for usage\n");
+                    continue;
+                }
 
-            if (ems_reserve(event_id, num_coords, xs, ys)) {
-                fprintf(stderr, "Failed to reserve seats\n");
+                if (ems_reserve(event_id, num_coords, xs, ys)) {
+                    fprintf(stderr, "Failed to reserve seats\n");
+                }
             }
 
             break;
@@ -49,62 +66,81 @@ int parse_start(int fd, int fd_out) {
                 continue;
             }
 
-            if (ems_show(event_id, fd_out)) {
-                fprintf(stderr, "Failed to show event\n");
+            if (my_line(thread_num, line, max_thread)) {
+                if (ems_show(event_id, fd_out)) {
+                    fprintf(stderr, "Failed to show event\n");
+                }
             }
 
             break;
 
         case CMD_LIST_EVENTS:
-            if (ems_list_events(fd_out)) {
-                fprintf(stderr, "Failed to list events\n");
+            if (my_line(thread_num, line, max_thread)) {
+                if (ems_list_events(fd_out)) {
+                    fprintf(stderr, "Failed to list events\n");
+                }
             }
 
             break;
 
         case CMD_WAIT:
-            if (parse_wait(fd, &delay, NULL) ==
-                -1) { // thread_id is not implemented
+            if (parse_wait(fd, &delay, &found_thread) == -1) {
                 fprintf(stderr, "Invalid command. See HELP for usage\n");
                 continue;
             }
 
             if (delay > 0) {
-                printf("Waiting...\n");
-
-                ems_wait(delay);
-
+                if ((int)found_thread == thread_num || found_thread == 0) {
+                    printf("Waiting...\n");
+                    ems_wait(delay);
+                    printf("%d saiu do wait\n",thread_num);
+                }
             }
 
             break;
 
         case CMD_INVALID:
-            fprintf(stderr, "Invalid command. See HELP for usage\n");
+            if (my_line(thread_num, line, max_thread)) {
+                fprintf(stderr, "Invalid command. See HELP for usage\n");
+            }
+
             break;
 
         case CMD_HELP:
-            write(fd_out,
-                  "Available commands:\n"
-                  "  CREATE <event_id> <num_rows> <num_columns>\n"
-                  "  RESERVE <event_id> [(<x1>,<y1>) (<x2>,<y2>) ...]\n"
-                  "  SHOW <event_id>\n"
-                  "  LIST\n"
-                  "  WAIT <delay_ms> [thread_id]\n" // thread_id is not
-                                                    // implemented
-                  "  BARRIER\n"                     // Not implemented
-                  "  HELP\n",
-                  HELP_SIZE);
+            if (my_line(thread_num, line, max_thread)) {
+                write(fd_out,
+                      "Available commands:\n"
+                      "  CREATE <event_id> <num_rows> <num_columns>\n"
+                      "  RESERVE <event_id> [(<x1>,<y1>) (<x2>,<y2>) ...]\n"
+                      "  SHOW <event_id>\n"
+                      "  LIST\n"
+                      "  WAIT <delay_ms> [thread_id]\n"
+
+                      "  BARRIER\n"
+                      "  HELP\n",
+                      HELP_SIZE);
+            }
 
             break;
 
-        case CMD_BARRIER: // Not implemented
+        case CMD_BARRIER:
+            wait_for_all(arrived, semaforo, max_thread);
+            break;
+
         case CMD_EMPTY:
             break;
 
         case EOC:
-            return 0;
+            close(fd);
+            wait_for_all(arrived, semaforo, max_thread);
+            printf("thread: %d chegou ao final\n", thread_num);
+            pthread_exit(0);
         }
     }
+}
+
+int my_line(int thread_num, int line, int max_thread) {
+    return line % max_thread == thread_num;
 }
 
 static int read_uint(int fd, unsigned int *value, char *next) {
@@ -144,7 +180,8 @@ static void cleanup(int fd) {
         ;
 }
 
-enum Command get_next(int fd) {
+enum Command get_next(int fd, int *line) {
+    (*line)++;
     char buf[16];
     if (read(fd, buf, 1) != 1) {
         return EOC;
@@ -334,8 +371,8 @@ int parse_show(int fd, unsigned int *event_id) {
 }
 
 int parse_wait(int fd, unsigned int *delay, unsigned int *thread_id) {
-    char ch;
 
+    char ch;
     if (read_uint(fd, delay, &ch) != 0) {
         cleanup(fd);
         return -1;
@@ -358,5 +395,32 @@ int parse_wait(int fd, unsigned int *delay, unsigned int *thread_id) {
     } else {
         cleanup(fd);
         return -1;
+    }
+}
+pthread_mutex_t mutex_barrier = PTHREAD_MUTEX_INITIALIZER;
+
+void wait_for_all(int arrived, sem_t semaforo, int max_thread) {
+    
+    // lock
+    pthread_mutex_lock(&mutex_barrier);
+    arrived++;
+    int my_arrived = arrived;
+
+    // unlock
+    pthread_mutex_unlock(&mutex_barrier);
+    if (my_arrived < max_thread) {
+
+        sem_wait(&semaforo);
+
+    } else {
+        // lock
+        pthread_mutex_lock(&mutex_barrier);
+        arrived = 0;
+        // unlock
+        pthread_mutex_unlock(&mutex_barrier);
+        for (int i = 1; i < my_arrived; i++) {
+
+            sem_post(&semaforo);
+        }
     }
 }

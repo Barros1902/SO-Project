@@ -90,6 +90,8 @@ int main(int argc, char *argv[]){
 
             } else {
                 pthread_t tid[MAX_THREAD];
+                sem_t semaforo;
+                sem_init(&semaforo, 0, 0);
                 int fd_out = open(path_copy_fd_out, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR);
                 for (int i = 0; i < MAX_THREAD; i++) {
 
@@ -98,21 +100,35 @@ int main(int argc, char *argv[]){
                     current_thread[i].fd_out = fd_out;
                     current_thread[i].thread_num = i + 1;
                     current_thread[i].max_thread = MAX_THREAD;
-
+                    current_thread[i].semaforo = &semaforo;
+                    strcpy(current_thread[i].path, path_copy_fd);
                     pthread_create(&tid[i],NULL,parse_start,(void*)&current_thread[i]);
                 }
                 for (int i = 0; i < MAX_THREAD; i++) {
+                    printf("joining threads %d\n", i);
                     pthread_join(tid[i],NULL);
+                    printf("Post join %d\n", i);
+                   
+                    
                 }
+                
+            
                 close(fd_out);
+                sem_destroy(&semaforo);
+                ems_terminate();
                 exit(0);
                   
             }
             
         }
+       
         for (int i = 0; i < proc_counter; i++) {
+            printf("antes\nproc_counter : %d\ni: %d\n", proc_counter, i);
             wait(status);
+            printf("depois\n");
+
         }
+        printf("depois do for\n");
         closedir(current_dir);
         ems_terminate();
         exit(0);

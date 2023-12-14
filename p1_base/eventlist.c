@@ -15,6 +15,7 @@ struct EventList *create_list() {
 }
 
 int append_to_list(struct EventList *list, struct Event *event) {
+    // pthread_mutex_lock(&(event->mutex_event));
     if (!list)
         return 1;
 
@@ -34,6 +35,7 @@ int append_to_list(struct EventList *list, struct Event *event) {
         list->tail = new_node;
     }
 
+    // pthread_mutex_unlock(&(event->mutex_event));
     return 0;
 }
 

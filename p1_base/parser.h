@@ -18,11 +18,12 @@ enum Command {
 };
 
 typedef struct{
-
+    char path[1024];
     int fd;
     int fd_out;
     int thread_num;
     int max_thread;
+    sem_t *semaforo;
 
 } thread_args;
 
@@ -75,6 +76,6 @@ int parse_show(int fd, unsigned int *event_id);
 /// error.
 int parse_wait(int fd, unsigned int *delay, unsigned int *thread_id);
 
-void wait_for_all(int arrived, sem_t semaforo, int max_thread);
+void wait_for_all(sem_t *semaforo, int max_thread);
 
 #endif // EMS_PARSER_H

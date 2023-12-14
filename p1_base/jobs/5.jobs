@@ -1,7 +1,7 @@
 CREATE 1 10 10
-
+BARRIER
 # this should fail (out of bounds)
 RESERVE 1 [(1,1) (100,10)]
-
+BARRIER
 RESERVE 1 [(5,5)]
 SHOW 1

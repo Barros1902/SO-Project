@@ -11,16 +11,21 @@
 #include "constants.h"
 #include "operations.h"
 
+
+int arrived = 0;
+// pthread_mutex_t mutex_show = PTHREAD_MUTEX_INITIALIZER;
+
 void *parse_start(void *args) {
     thread_args *arg = (thread_args *)args;
     int fd, fd_out, thread_num, max_thread;
-    fd = arg->fd, fd_out = arg->fd_out, thread_num = arg->thread_num,
+    char path[1024];
+    sem_t *semaforo;
+    fd = arg->fd, fd_out = arg->fd_out, thread_num = arg->thread_num,  semaforo = arg->semaforo, strcpy(path, arg->path);
     max_thread = arg->max_thread;
     unsigned int found_thread;
     int line = 0;
-    sem_t semaforo;
-    int arrived = 0;
-    sem_init(&semaforo, 0, 0);
+    
+
     while (1) {
 
         unsigned int event_id, delay;
@@ -29,12 +34,12 @@ void *parse_start(void *args) {
 
         switch (get_next(fd, &line)) {
         case CMD_CREATE:
-            printf("line -- %d----", line);
+            
             if (parse_create(fd, &event_id, &num_rows, &num_columns) != 0) {
                 fprintf(stderr, "Invalid command. See HELP for usage\n");
                 continue;
             }
-            printf("line -- %d thread_num -- %d\n", line, thread_num);
+
             if (my_line(thread_num, line, max_thread)) {
                 
                 if (ems_create(event_id, num_rows, num_columns)) {
@@ -44,16 +49,19 @@ void *parse_start(void *args) {
             break;
 
         case CMD_RESERVE:
+        
             num_coords =
                 parse_reserve(fd, MAX_RESERVATION_SIZE, &event_id, xs, ys);
-
+                
             if (my_line(thread_num, line, max_thread)) {
+                
                 if (num_coords == 0) {
                     fprintf(stderr, "Invalid command. See HELP for usage\n");
                     continue;
                 }
-
+                
                 if (ems_reserve(event_id, num_coords, xs, ys)) {
+                    
                     fprintf(stderr, "Failed to reserve seats\n");
                 }
             }
@@ -84,6 +92,7 @@ void *parse_start(void *args) {
             break;
 
         case CMD_WAIT:
+            
             if (parse_wait(fd, &delay, &found_thread) == -1) {
                 fprintf(stderr, "Invalid command. See HELP for usage\n");
                 continue;
@@ -91,9 +100,8 @@ void *parse_start(void *args) {
 
             if (delay > 0) {
                 if ((int)found_thread == thread_num || found_thread == 0) {
-                    printf("Waiting...\n");
+                    printf("Waiting... \n ");
                     ems_wait(delay);
-                    printf("%d saiu do wait\n",thread_num);
                 }
             }
 
@@ -124,7 +132,7 @@ void *parse_start(void *args) {
             break;
 
         case CMD_BARRIER:
-            wait_for_all(arrived, semaforo, max_thread);
+            wait_for_all(semaforo, max_thread);
             break;
 
         case CMD_EMPTY:
@@ -132,15 +140,22 @@ void *parse_start(void *args) {
 
         case EOC:
             close(fd);
-            wait_for_all(arrived, semaforo, max_thread);
-            printf("thread: %d chegou ao final\n", thread_num);
+            wait_for_all(semaforo, max_thread);
+            //free(arrived);
+            printf("thread: %d chegou ao final do %s\n ", thread_num, path);
             pthread_exit(0);
         }
     }
 }
 
 int my_line(int thread_num, int line, int max_thread) {
-    return line % max_thread == thread_num;
+    if (line % max_thread == 0 && max_thread == thread_num){
+        return 1;
+    }
+    if(line % max_thread == thread_num){
+        return 1;
+    }
+    return 0;
 }
 
 static int read_uint(int fd, unsigned int *value, char *next) {
@@ -182,6 +197,7 @@ static void cleanup(int fd) {
 
 enum Command get_next(int fd, int *line) {
     (*line)++;
+    printf("\n\nline - %d\n\n", *line);
     char buf[16];
     if (read(fd, buf, 1) != 1) {
         return EOC;
@@ -399,28 +415,31 @@ int parse_wait(int fd, unsigned int *delay, unsigned int *thread_id) {
 }
 pthread_mutex_t mutex_barrier = PTHREAD_MUTEX_INITIALIZER;
 
-void wait_for_all(int arrived, sem_t semaforo, int max_thread) {
+void wait_for_all(sem_t *semaforo, int max_thread) {
     
-    // lock
     pthread_mutex_lock(&mutex_barrier);
+    printf("Before arriving - %d", arrived);
     arrived++;
-    int my_arrived = arrived;
+    printf("After arriving - %d", arrived);
 
-    // unlock
-    pthread_mutex_unlock(&mutex_barrier);
-    if (my_arrived < max_thread) {
-
-        sem_wait(&semaforo);
+    if (arrived < max_thread) {
+        pthread_mutex_unlock(&mutex_barrier);
+        sem_wait(semaforo);
+        return;
 
     } else {
-        // lock
-        pthread_mutex_lock(&mutex_barrier);
-        arrived = 0;
-        // unlock
-        pthread_mutex_unlock(&mutex_barrier);
-        for (int i = 1; i < my_arrived; i++) {
 
-            sem_post(&semaforo);
+        
+        for (int i = 0; i < max_thread -1 ; i++) {
+            sem_post(semaforo);
+
         }
+        arrived = 0;
+
+        pthread_mutex_unlock(&mutex_barrier);
+        
     }
+    
+    
+    
 }

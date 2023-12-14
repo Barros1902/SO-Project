@@ -105,9 +105,7 @@ int main(int argc, char *argv[]){
                     pthread_create(&tid[i],NULL,parse_start,(void*)&current_thread[i]);
                 }
                 for (int i = 0; i < MAX_THREAD; i++) {
-                    printf("joining threads %d\n", i);
                     pthread_join(tid[i],NULL);
-                    printf("Post join %d\n", i);
                    
                     
                 }
@@ -123,12 +121,9 @@ int main(int argc, char *argv[]){
         }
        
         for (int i = 0; i < proc_counter; i++) {
-            printf("antes\nproc_counter : %d\ni: %d\n", proc_counter, i);
             wait(status);
-            printf("depois\n");
 
         }
-        printf("depois do for\n");
         closedir(current_dir);
         ems_terminate();
         exit(0);

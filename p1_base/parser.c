@@ -141,8 +141,6 @@ void *parse_start(void *args) {
         case EOC:
             close(fd);
             wait_for_all(semaforo, max_thread);
-            //free(arrived);
-            printf("thread: %d chegou ao final do %s\n ", thread_num, path);
             pthread_exit(0);
         }
     }
@@ -197,7 +195,6 @@ static void cleanup(int fd) {
 
 enum Command get_next(int fd, int *line) {
     (*line)++;
-    printf("\n\nline - %d\n\n", *line);
     char buf[16];
     if (read(fd, buf, 1) != 1) {
         return EOC;
@@ -418,9 +415,7 @@ pthread_mutex_t mutex_barrier = PTHREAD_MUTEX_INITIALIZER;
 void wait_for_all(sem_t *semaforo, int max_thread) {
     
     pthread_mutex_lock(&mutex_barrier);
-    printf("Before arriving - %d", arrived);
     arrived++;
-    printf("After arriving - %d", arrived);
 
     if (arrived < max_thread) {
         pthread_mutex_unlock(&mutex_barrier);

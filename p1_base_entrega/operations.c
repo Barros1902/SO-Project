@@ -97,6 +97,7 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
     if (event == NULL) {
         fprintf(stderr, "Error allocating memory for event\n");
+        pthread_mutex_unlock(&(event_list->mutex_event_list));
         return 1;
     }
 
@@ -249,7 +250,7 @@ int ems_list_events(int fd_out) {
     
     struct ListNode *current = event_list->head;
 
-    // pthread_mutex_lock(&(event_list->mutex_event_list));
+    pthread_mutex_lock(&(event_list->mutex_event_list));
     while (current != NULL) {
         printf("estou no while");
         write(fd_out, "Event: ", 7);
@@ -260,9 +261,9 @@ int ems_list_events(int fd_out) {
         current = current->next;
     }
 
-    // pthread_mutex_unlock(&(event_list->mutex_event_list));
+    pthread_mutex_unlock(&(event_list->mutex_event_list));
     pthread_rwlock_unlock(&(event_list->rw_event_list));
-     printf("estou na list");
+    printf("estou na list");
 
     return 0;
 }

@@ -89,12 +89,11 @@ int main(int argc, char *argv[]){
                 continue;
 
             } else {
-                
+                printf("AAAA");
                 pthread_t tid[MAX_THREAD];
                 sem_t semaforo;
                 sem_init(&semaforo, 0, 0);
                 int fd_out = open(path_copy_fd_out, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR);
-                printf("AAAAAAA");
                 for (int i = 0; i < MAX_THREAD; i++) {
 
                     int fd = open(path_copy_fd, O_RDONLY);

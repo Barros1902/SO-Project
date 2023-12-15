@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <pthread.h>
 
-
 struct Event {
     unsigned int id;           /// Event id
     unsigned int reservations; /// Number of reservations for the event.
@@ -16,7 +15,6 @@ struct Event {
         data; /// Array of size rows * cols with the reservations for each seat.
 
     pthread_mutex_t mutex_event;
-    
 };
 
 struct ListNode {
@@ -29,6 +27,7 @@ struct EventList {
     struct ListNode *head; // Head of the list
     struct ListNode *tail; // Tail of the list
     pthread_mutex_t mutex_event_list;
+    pthread_rwlock_t rw_event_list;
 };
 
 /// Creates a new event list.

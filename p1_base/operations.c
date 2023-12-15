@@ -9,6 +9,7 @@
 #include "constants.h"
 #include "eventlist.h"
 
+
 static struct EventList *event_list = NULL;
 static unsigned int state_access_delay_ms = 0;
 /// Calculates a timespec from a delay in milliseconds.
@@ -59,6 +60,7 @@ int ems_init(unsigned int delay_ms) {
     }
 
     event_list = create_list();
+    pthread_rwlock_init(&(event_list->rw_event_list),NULL);
     state_access_delay_ms = delay_ms;
 
     return event_list == NULL;
@@ -75,26 +77,28 @@ int ems_terminate() {
 }
 
 int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
+
     if (event_list == NULL) {
         fprintf(stderr, "EMS state must be initialized\n");
         return 1;
     }
 
+
+    pthread_rwlock_wrlock(&(event_list->rw_event_list));
     if (get_event_with_delay(event_id) != NULL) {
         fprintf(stderr, "Event already exists\n");
+        pthread_mutex_unlock(&(event_list->mutex_event_list));
         return 1;
     }
 
+
     struct Event *event = malloc(sizeof(struct Event));
+    pthread_mutex_init(&event->mutex_event,NULL);
 
     if (event == NULL) {
         fprintf(stderr, "Error allocating memory for event\n");
         return 1;
     }
-
-    pthread_mutex_init(&event->mutex_event,NULL);
-
-    pthread_mutex_lock(&(event->mutex_event));
 
     event->id = event_id;
     event->rows = num_rows;
@@ -106,8 +110,8 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
 
     if (event->data == NULL) {
         fprintf(stderr, "Error allocating memory for event data\n");
-        pthread_mutex_unlock(&(event->mutex_event));
         free(event);
+        pthread_rwlock_unlock(&(event_list->rw_event_list));
         return 1;
     }
 
@@ -115,18 +119,17 @@ int ems_create(unsigned int event_id, size_t num_rows, size_t num_cols) {
         event->data[i] = 0;
     }
 
-    pthread_mutex_unlock(&(event->mutex_event));
 
-    pthread_mutex_lock(&(event_list->mutex_event_list));
     if (append_to_list(event_list, event) != 0) {
         fprintf(stderr, "Error appending event to list\n");
-        pthread_mutex_unlock(&(event_list->mutex_event_list));
         free(event->data);
         free(event);
+
+        pthread_rwlock_unlock(&(event_list->rw_event_list)); 
         return 1;
     }
 
-    pthread_mutex_unlock(&(event_list->mutex_event_list));
+    pthread_rwlock_unlock(&(event_list->rw_event_list));
     return 0;
 }
 
@@ -136,11 +139,14 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs,size_t *ys) 
         return 1;
     }
     
+    pthread_rwlock_rdlock(&(event_list->rw_event_list));
     struct Event *event = get_event_with_delay(event_id);
     if (event == NULL) {
         fprintf(stderr, "Event not found\n");
+        pthread_rwlock_unlock(&(event_list->rw_event_list));
         return 1;
     }
+    pthread_rwlock_unlock(&(event_list->rw_event_list));
 
     pthread_mutex_lock(&(event->mutex_event));
     unsigned int reservation_id = ++event->reservations;
@@ -185,19 +191,25 @@ int ems_reserve(unsigned int event_id, size_t num_seats, size_t *xs,size_t *ys) 
 }
 
 int ems_show(unsigned int event_id, int fd_out) {
+     printf("CCCCCCCCC");
     if (event_list == NULL) {
         fprintf(stderr, "EMS state must be initialized\n");
         return 1;
     }
 
+    pthread_rwlock_rdlock(&(event_list->rw_event_list));
     struct Event *event = get_event_with_delay(event_id);
 
     if (event == NULL) {
         fprintf(stderr, "Event not found\n");
+        pthread_rwlock_unlock(&(event_list->rw_event_list));
         return 1;
     }
-    pthread_mutex_lock(&(event->mutex_event)); 
-    pthread_mutex_lock(&(event_list->mutex_event_list));
+     printf("BBBBBBBBB");
+    pthread_rwlock_unlock(&(event_list->rw_event_list));
+    printf("AAAAAAA");
+    pthread_mutex_lock(&(event->mutex_event));
+    
     size_t len = 1;
     for (size_t i = 1; i <= event->rows; i++) {
         for (size_t j = 1; j <= event->cols; j++) {
@@ -218,7 +230,6 @@ int ems_show(unsigned int event_id, int fd_out) {
         
     }
     pthread_mutex_unlock(&(event->mutex_event));
-    pthread_mutex_unlock(&(event_list->mutex_event_list));
     return 0;
 }
 
@@ -228,25 +239,30 @@ int ems_list_events(int fd_out) {
         return 1;
     }
 
+    pthread_rwlock_rdlock(&(event_list->rw_event_list));
+    
     if (event_list->head == NULL) {
         write(fd_out, "No events\n", 10);
+        pthread_rwlock_unlock(&(event_list->rw_event_list));
         return 0;
     }
-
     
     struct ListNode *current = event_list->head;
-    
-    while (current != NULL) {
 
-        pthread_mutex_lock(&(event_list->mutex_event_list));
+    // pthread_mutex_lock(&(event_list->mutex_event_list));
+    while (current != NULL) {
+        printf("estou no while");
         write(fd_out, "Event: ", 7);
         char event_string[BUFFER_SIZE];
         sprintf(event_string, "%u", (current->event)->id);
         write(fd_out, event_string, strlen(event_string));
         write(fd_out, "\n ", 1);
         current = current->next;
-        pthread_mutex_unlock(&(event_list->mutex_event_list));
     }
+
+    // pthread_mutex_unlock(&(event_list->mutex_event_list));
+    pthread_rwlock_unlock(&(event_list->rw_event_list));
+     printf("estou na list");
 
     return 0;
 }

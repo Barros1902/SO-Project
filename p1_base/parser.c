@@ -11,7 +11,6 @@
 #include "constants.h"
 #include "operations.h"
 
-
 int arrived = 0;
 // pthread_mutex_t mutex_show = PTHREAD_MUTEX_INITIALIZER;
 
@@ -20,28 +19,29 @@ void *parse_start(void *args) {
     int fd, fd_out, thread_num, max_thread;
     char path[1024];
     sem_t *semaforo;
-    fd = arg->fd, fd_out = arg->fd_out, thread_num = arg->thread_num,  semaforo = arg->semaforo, strcpy(path, arg->path);
+    fd = arg->fd, fd_out = arg->fd_out, thread_num = arg->thread_num,
+    semaforo = arg->semaforo, strcpy(path, arg->path);
     max_thread = arg->max_thread;
     unsigned int found_thread;
     int line = 0;
-    
 
     while (1) {
-
+        printf("dentro do while");
         unsigned int event_id, delay;
         size_t num_rows, num_columns, num_coords;
         size_t xs[MAX_RESERVATION_SIZE], ys[MAX_RESERVATION_SIZE];
 
         switch (get_next(fd, &line)) {
         case CMD_CREATE:
-            
+            printf("create");
+
             if (parse_create(fd, &event_id, &num_rows, &num_columns) != 0) {
                 fprintf(stderr, "Invalid command. See HELP for usage\n");
                 continue;
             }
 
             if (my_line(thread_num, line, max_thread)) {
-                
+
                 if (ems_create(event_id, num_rows, num_columns)) {
                     fprintf(stderr, "Failed to create event\n");
                 }
@@ -49,19 +49,18 @@ void *parse_start(void *args) {
             break;
 
         case CMD_RESERVE:
-        
-            num_coords =
-                parse_reserve(fd, MAX_RESERVATION_SIZE, &event_id, xs, ys);
-                
+            printf("reserve");
+            num_coords = parse_reserve(fd, MAX_RESERVATION_SIZE, &event_id, xs, ys);
+
             if (my_line(thread_num, line, max_thread)) {
-                
+
                 if (num_coords == 0) {
                     fprintf(stderr, "Invalid command. See HELP for usage\n");
                     continue;
                 }
-                
+
                 if (ems_reserve(event_id, num_coords, xs, ys)) {
-                    
+
                     fprintf(stderr, "Failed to reserve seats\n");
                 }
             }
@@ -69,6 +68,7 @@ void *parse_start(void *args) {
             break;
 
         case CMD_SHOW:
+        printf("show");
             if (parse_show(fd, &event_id) != 0) {
                 fprintf(stderr, "Invalid command. See HELP for usage\n");
                 continue;
@@ -83,6 +83,7 @@ void *parse_start(void *args) {
             break;
 
         case CMD_LIST_EVENTS:
+        printf("list events");
             if (my_line(thread_num, line, max_thread)) {
                 if (ems_list_events(fd_out)) {
                     fprintf(stderr, "Failed to list events\n");
@@ -92,7 +93,7 @@ void *parse_start(void *args) {
             break;
 
         case CMD_WAIT:
-            
+
             if (parse_wait(fd, &delay, &found_thread) == -1) {
                 fprintf(stderr, "Invalid command. See HELP for usage\n");
                 continue;
@@ -147,10 +148,10 @@ void *parse_start(void *args) {
 }
 
 int my_line(int thread_num, int line, int max_thread) {
-    if (line % max_thread == 0 && max_thread == thread_num){
+    if (line % max_thread == 0 && max_thread == thread_num) {
         return 1;
     }
-    if(line % max_thread == thread_num){
+    if (line % max_thread == thread_num) {
         return 1;
     }
     return 0;
@@ -413,7 +414,7 @@ int parse_wait(int fd, unsigned int *delay, unsigned int *thread_id) {
 pthread_mutex_t mutex_barrier = PTHREAD_MUTEX_INITIALIZER;
 
 void wait_for_all(sem_t *semaforo, int max_thread) {
-    
+
     pthread_mutex_lock(&mutex_barrier);
     arrived++;
 
@@ -424,17 +425,11 @@ void wait_for_all(sem_t *semaforo, int max_thread) {
 
     } else {
 
-        
-        for (int i = 0; i < max_thread -1 ; i++) {
+        for (int i = 0; i < max_thread - 1; i++) {
             sem_post(semaforo);
-
         }
         arrived = 0;
 
         pthread_mutex_unlock(&mutex_barrier);
-        
     }
-    
-    
-    
 }

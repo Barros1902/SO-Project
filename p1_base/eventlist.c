@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
+
 struct EventList *create_list() {
     struct EventList *list =
         (struct EventList *)malloc(sizeof(struct EventList));
@@ -15,15 +16,19 @@ struct EventList *create_list() {
 }
 
 int append_to_list(struct EventList *list, struct Event *event) {
-    // pthread_mutex_lock(&(event->mutex_event));
+   
     if (!list)
         return 1;
 
-    struct ListNode *new_node =
-        (struct ListNode *)malloc(sizeof(struct ListNode));
-    if (!new_node)
-        return 1;
+ 
+    struct ListNode *new_node = (struct ListNode *)malloc(sizeof(struct ListNode));
+    
+    if (!new_node){
 
+        return 1;
+    }
+
+   
     new_node->event = event;
     new_node->next = NULL;
 
@@ -35,7 +40,6 @@ int append_to_list(struct EventList *list, struct Event *event) {
         list->tail = new_node;
     }
 
-    // pthread_mutex_unlock(&(event->mutex_event));
     return 0;
 }
 
@@ -69,13 +73,16 @@ struct Event *get_event(struct EventList *list, unsigned int event_id) {
 
     struct ListNode *current = list->head;
 
+    
     while (current) {
+        pthread_mutex_lock(&((current->event)->mutex_event));
         struct Event *event = current->event;
         if (event->id == event_id) {
             return event;
         }
         current = current->next;
+       pthread_mutex_unlock(&((current->event)->mutex_event));
     }
-
+    
     return NULL;
 }
